@@ -1,7 +1,10 @@
 package cart
 
 import (
+	"log"
+
 	pb "github.com/ogozo/proto-definitions/gen/go/cart"
+	"github.com/ogozo/service-cart/internal/broker"
 )
 
 type Service struct {
@@ -42,4 +45,14 @@ func (s *Service) AddItem(userID string, item *pb.CartItem) (*CartDocument, erro
 		return nil, err
 	}
 	return cart, nil
+}
+
+func (s *Service) HandleOrderConfirmedEvent(event broker.OrderConfirmedEvent) {
+	log.Printf("Clearing cart for user %s following order confirmation %s", event.UserID, event.OrderID)
+	err := s.repo.ClearCart(event.UserID)
+	if err != nil {
+		log.Printf("ERROR: Failed to clear cart for user %s: %v", event.UserID, err)
+	} else {
+		log.Printf("✅ Cart cleared for user %s.", event.UserID)
+	}
 }

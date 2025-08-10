@@ -54,3 +54,12 @@ func (r *Repository) UpdateCart(userID string, cart *CartDocument) error {
 	_, err := r.collection.Upsert(userID, cart, nil)
 	return err
 }
+
+func (r *Repository) ClearCart(userID string) error {
+	_, err := r.collection.Remove(userID, nil)
+	// Eğer döküman zaten yoksa, bu bir hata değildir.
+	if err != nil && !errors.Is(err, gocb.ErrDocumentNotFound) {
+		return err
+	}
+	return nil
+}

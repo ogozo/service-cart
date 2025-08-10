@@ -6,6 +6,7 @@ require (
 	github.com/couchbase/gocb/v2 v2.10.1
 	github.com/ogozo/proto-definitions v0.0.0-20250810193401-655e316c89a5
 	github.com/spf13/viper v1.20.1
+	github.com/streadway/amqp v1.1.0
 	google.golang.org/grpc v1.74.2
 )
 

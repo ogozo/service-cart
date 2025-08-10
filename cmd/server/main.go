@@ -7,6 +7,7 @@ import (
 
 	"github.com/couchbase/gocb/v2"
 	pb "github.com/ogozo/proto-definitions/gen/go/cart"
+	"github.com/ogozo/service-cart/internal/broker"
 	"github.com/ogozo/service-cart/internal/cart"
 	"github.com/ogozo/service-cart/internal/config"
 	"google.golang.org/grpc"
@@ -16,6 +17,14 @@ func main() {
 	// 1. Yapılandırmayı yükle
 	config.LoadConfig()
 	cfg := config.AppConfig
+
+	// Consumer'ı başlat
+	consumer, err := broker.NewConsumer(cfg.RabbitMQURL)
+	if err != nil {
+		log.Fatalf("Failed to create consumer: %v", err)
+	}
+	defer consumer.Close()
+	log.Println("RabbitMQ consumer connected.")
 
 	// 2. Couchbase bağlantısını yapılandırmadan alarak kur
 	cluster, err := gocb.Connect(cfg.CouchbaseConnStr, gocb.ClusterOptions{
@@ -40,6 +49,10 @@ func main() {
 	cartRepo := cart.NewRepository(collection)
 	cartService := cart.NewService(cartRepo)
 	cartHandler := cart.NewHandler(cartService)
+
+	if err := consumer.StartOrderConfirmedConsumer(cartService.HandleOrderConfirmedEvent); err != nil {
+		log.Fatalf("Failed to start consumer: %v", err)
+	}
 
 	// 4. gRPC sunucusunu yapılandırmadan aldığı port ile başlat
 	lis, err := net.Listen("tcp", cfg.GRPCPort)

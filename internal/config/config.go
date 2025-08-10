@@ -2,6 +2,7 @@ package config
 
 import (
 	"log"
+
 	"github.com/spf13/viper"
 )
 
@@ -12,15 +13,16 @@ type Config struct {
 	CouchbaseUser    string `mapstructure:"COUCHBASE_USER"`
 	CouchbasePass    string `mapstructure:"COUCHBASE_PASS"`
 	CouchbaseBucket  string `mapstructure:"COUCHBASE_BUCKET"`
+	RabbitMQURL      string `mapstructure:"RABBITMQ_URL"`
 }
 
 var AppConfig *Config
 
 // LoadConfig, yapılandırmayı .env dosyasından veya ortam değişkenlerinden okur.
 func LoadConfig() {
-	viper.AddConfigPath(".")      // config dosyasının aranacağı yer (proje ana dizini)
-	viper.SetConfigName(".env")   // config dosyasının adı
-	viper.SetConfigType("env")    // config dosyasının tipi
+	viper.AddConfigPath(".")    // config dosyasının aranacağı yer (proje ana dizini)
+	viper.SetConfigName(".env") // config dosyasının adı
+	viper.SetConfigType("env")  // config dosyasının tipi
 
 	viper.AutomaticEnv()
 
