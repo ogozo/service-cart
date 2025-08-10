@@ -4,7 +4,7 @@ go 1.24.6
 
 require (
 	github.com/couchbase/gocb/v2 v2.10.1
-	github.com/ogozo/proto-definitions v0.0.0-20250810175126-26cd15135691
+	github.com/ogozo/proto-definitions v0.0.0-20250810193401-655e316c89a5
 	github.com/spf13/viper v1.20.1
 	google.golang.org/grpc v1.74.2
 )
