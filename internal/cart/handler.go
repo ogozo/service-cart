@@ -18,13 +18,11 @@ func NewHandler(service *Service) *Handler {
 }
 
 func (h *Handler) AddItemToCart(ctx context.Context, req *pb.AddItemToCartRequest) (*pb.AddItemToCartResponse, error) {
-	// Gelen isteği alıp service katmanına iletiyoruz.
 	cart, err := h.service.AddItem(req.UserId, req.Item)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "could not add item to cart: %v", err)
 	}
 
-	// Service katmanından dönen güncel sepeti response olarak döndürüyoruz.
 	return &pb.AddItemToCartResponse{UserId: cart.UserID, Items: cart.Items}, nil
 }
 

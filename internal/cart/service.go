@@ -25,17 +25,15 @@ func (s *Service) AddItem(userID string, item *pb.CartItem) (*CartDocument, erro
 		return nil, err
 	}
 
-	// Ürün zaten sepette var mı diye kontrol et
 	found := false
 	for _, existingItem := range cart.Items {
 		if existingItem.ProductId == item.ProductId {
-			existingItem.Quantity += item.Quantity // Miktarı artır
+			existingItem.Quantity += item.Quantity
 			found = true
 			break
 		}
 	}
 
-	// Eğer ürün sepette yoksa, yeni olarak ekle
 	if !found {
 		cart.Items = append(cart.Items, item)
 	}

@@ -1,8 +1,11 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net"
+	"os"
+	"os/signal"
 	"time"
 
 	"github.com/couchbase/gocb/v2"
@@ -10,15 +13,29 @@ import (
 	"github.com/ogozo/service-cart/internal/broker"
 	"github.com/ogozo/service-cart/internal/cart"
 	"github.com/ogozo/service-cart/internal/config"
+	"github.com/ogozo/service-cart/internal/observability"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 )
 
 func main() {
-	// 1. Yapılandırmayı yükle
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+
 	config.LoadConfig()
 	cfg := config.AppConfig
 
-	// Consumer'ı başlat
+	shutdown, err := observability.InitTracerProvider(ctx, cfg.OtelServiceName, cfg.OtelExporterEndpoint)
+	if err != nil {
+		log.Fatalf("failed to initialize tracer provider: %v", err)
+	}
+	defer func() {
+		if err := shutdown(ctx); err != nil {
+			log.Fatalf("failed to shutdown tracer provider: %v", err)
+		}
+	}()
+
 	consumer, err := broker.NewConsumer(cfg.RabbitMQURL)
 	if err != nil {
 		log.Fatalf("Failed to create consumer: %v", err)
@@ -26,7 +43,6 @@ func main() {
 	defer consumer.Close()
 	log.Println("RabbitMQ consumer connected.")
 
-	// 2. Couchbase bağlantısını yapılandırmadan alarak kur
 	cluster, err := gocb.Connect(cfg.CouchbaseConnStr, gocb.ClusterOptions{
 		Authenticator: gocb.PasswordAuthenticator{
 			Username: cfg.CouchbaseUser,
@@ -45,7 +61,6 @@ func main() {
 	collection := bucket.DefaultCollection()
 	log.Println("Couchbase connection successful for cart service.")
 
-	// 3. Bağımlılıkları enjekte et
 	cartRepo := cart.NewRepository(collection)
 	cartService := cart.NewService(cartRepo)
 	cartHandler := cart.NewHandler(cartService)
@@ -54,12 +69,14 @@ func main() {
 		log.Fatalf("Failed to start consumer: %v", err)
 	}
 
-	// 4. gRPC sunucusunu yapılandırmadan aldığı port ile başlat
 	lis, err := net.Listen("tcp", cfg.GRPCPort)
 	if err != nil {
 		log.Fatalf("failed to listen on port %s: %v", cfg.GRPCPort, err)
 	}
-	s := grpc.NewServer()
+	s := grpc.NewServer(
+		grpc.StatsHandler(otelgrpc.NewServerHandler()),
+	)
+
 	pb.RegisterCartServiceServer(s, cartHandler)
 
 	log.Printf("Cart gRPC server listening at %v", lis.Addr())

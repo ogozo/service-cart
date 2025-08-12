@@ -6,23 +6,23 @@ import (
 	"github.com/spf13/viper"
 )
 
-// Config, uygulamamızın tüm yapılandırma değerlerini tutan struct'tır.
 type Config struct {
-	GRPCPort         string `mapstructure:"GRPC_PORT"`
-	CouchbaseConnStr string `mapstructure:"COUCHBASE_CONN_STR"`
-	CouchbaseUser    string `mapstructure:"COUCHBASE_USER"`
-	CouchbasePass    string `mapstructure:"COUCHBASE_PASS"`
-	CouchbaseBucket  string `mapstructure:"COUCHBASE_BUCKET"`
-	RabbitMQURL      string `mapstructure:"RABBITMQ_URL"`
+	GRPCPort             string `mapstructure:"GRPC_PORT"`
+	CouchbaseConnStr     string `mapstructure:"COUCHBASE_CONN_STR"`
+	CouchbaseUser        string `mapstructure:"COUCHBASE_USER"`
+	CouchbasePass        string `mapstructure:"COUCHBASE_PASS"`
+	CouchbaseBucket      string `mapstructure:"COUCHBASE_BUCKET"`
+	RabbitMQURL          string `mapstructure:"RABBITMQ_URL"`
+	OtelExporterEndpoint string `mapstructure:"OTEL_EXPORTER_OTLP_ENDPOINT"`
+	OtelServiceName      string `mapstructure:"OTEL_SERVICE_NAME"`
 }
 
 var AppConfig *Config
 
-// LoadConfig, yapılandırmayı .env dosyasından veya ortam değişkenlerinden okur.
 func LoadConfig() {
-	viper.AddConfigPath(".")    // config dosyasının aranacağı yer (proje ana dizini)
-	viper.SetConfigName(".env") // config dosyasının adı
-	viper.SetConfigType("env")  // config dosyasının tipi
+	viper.AddConfigPath(".")
+	viper.SetConfigName(".env")
+	viper.SetConfigType("env")
 
 	viper.AutomaticEnv()
 

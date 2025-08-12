@@ -8,7 +8,6 @@ import (
 	pb "github.com/ogozo/proto-definitions/gen/go/cart"
 )
 
-// Dökümanımızın Couchbase'deki yapısı
 type CartDocument struct {
 	UserID        string         `json:"userId"`
 	Items         []*pb.CartItem `json:"items"`
@@ -57,7 +56,6 @@ func (r *Repository) UpdateCart(userID string, cart *CartDocument) error {
 
 func (r *Repository) ClearCart(userID string) error {
 	_, err := r.collection.Remove(userID, nil)
-	// Eğer döküman zaten yoksa, bu bir hata değildir.
 	if err != nil && !errors.Is(err, gocb.ErrDocumentNotFound) {
 		return err
 	}

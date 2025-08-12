@@ -55,7 +55,6 @@ func (c *Consumer) StartOrderConfirmedConsumer(handler func(event OrderConfirmed
 
 func (c *Consumer) Close() {
 	if c.channel != nil {
-		// Kanalı kapatıyoruz
 		if err := c.channel.Close(); err != nil {
 			log.Printf("Error closing RabbitMQ channel: %v", err)
 		} else {
@@ -64,7 +63,6 @@ func (c *Consumer) Close() {
 	}
 	
 	if c.conn != nil {
-		// Bağlantıyı kapatıyoruz
 		if err := c.conn.Close(); err != nil {
 			log.Printf("Error closing RabbitMQ connection: %v", err)
 		} else {
