@@ -1,10 +1,11 @@
 package cart
 
 import (
+	"context"
 	"log"
 
-	pb "github.com/ogozo/proto-definitions/gen/go/cart"
 	"github.com/ogozo/service-cart/internal/broker"
+	pb "github.com/ogozo/proto-definitions/gen/go/cart"
 )
 
 type Service struct {
@@ -15,12 +16,12 @@ func NewService(repo *Repository) *Service {
 	return &Service{repo: repo}
 }
 
-func (s *Service) GetCart(userID string) (*CartDocument, error) {
-	return s.repo.GetCartByUserID(userID)
+func (s *Service) GetCart(ctx context.Context, userID string) (*CartDocument, error) {
+	return s.repo.GetCartByUserID(ctx, userID)
 }
 
-func (s *Service) AddItem(userID string, item *pb.CartItem) (*CartDocument, error) {
-	cart, err := s.repo.GetCartByUserID(userID)
+func (s *Service) AddItem(ctx context.Context, userID string, item *pb.CartItem) (*CartDocument, error) {
+	cart, err := s.repo.GetCartByUserID(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -38,7 +39,7 @@ func (s *Service) AddItem(userID string, item *pb.CartItem) (*CartDocument, erro
 		cart.Items = append(cart.Items, item)
 	}
 
-	err = s.repo.UpdateCart(userID, cart)
+	err = s.repo.UpdateCart(ctx, cart)
 	if err != nil {
 		return nil, err
 	}
@@ -46,8 +47,9 @@ func (s *Service) AddItem(userID string, item *pb.CartItem) (*CartDocument, erro
 }
 
 func (s *Service) HandleOrderConfirmedEvent(event broker.OrderConfirmedEvent) {
+	ctx := context.Background()
 	log.Printf("Clearing cart for user %s following order confirmation %s", event.UserID, event.OrderID)
-	err := s.repo.ClearCart(event.UserID)
+	err := s.repo.ClearCart(ctx, event.UserID)
 	if err != nil {
 		log.Printf("ERROR: Failed to clear cart for user %s: %v", event.UserID, err)
 	} else {

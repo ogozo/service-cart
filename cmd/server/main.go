@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"time"
 
+	"github.com/couchbase/gocb-opentelemetry"
 	"github.com/couchbase/gocb/v2"
 	pb "github.com/ogozo/proto-definitions/gen/go/cart"
 	"github.com/ogozo/service-cart/internal/broker"
@@ -15,6 +16,7 @@ import (
 	"github.com/ogozo/service-cart/internal/config"
 	"github.com/ogozo/service-cart/internal/observability"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	"go.opentelemetry.io/otel"
 	"google.golang.org/grpc"
 )
 
@@ -43,11 +45,14 @@ func main() {
 	defer consumer.Close()
 	log.Println("RabbitMQ consumer connected.")
 
+	tp := otel.GetTracerProvider()
+
 	cluster, err := gocb.Connect(cfg.CouchbaseConnStr, gocb.ClusterOptions{
 		Authenticator: gocb.PasswordAuthenticator{
 			Username: cfg.CouchbaseUser,
 			Password: cfg.CouchbasePass,
 		},
+		Tracer: gocbopentelemetry.NewOpenTelemetryRequestTracer(tp),
 	})
 	if err != nil {
 		log.Fatalf("Could not connect to Couchbase: %v", err)

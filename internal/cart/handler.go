@@ -17,8 +17,16 @@ func NewHandler(service *Service) *Handler {
 	return &Handler{service: service}
 }
 
+func (h *Handler) GetCart(ctx context.Context, req *pb.GetCartRequest) (*pb.GetCartResponse, error) {
+	cart, err := h.service.GetCart(ctx, req.UserId)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "could not get cart: %v", err)
+	}
+	return &pb.GetCartResponse{UserId: cart.UserID, Items: cart.Items}, nil
+}
+
 func (h *Handler) AddItemToCart(ctx context.Context, req *pb.AddItemToCartRequest) (*pb.AddItemToCartResponse, error) {
-	cart, err := h.service.AddItem(req.UserId, req.Item)
+	cart, err := h.service.AddItem(ctx, req.UserId, req.Item)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "could not add item to cart: %v", err)
 	}
@@ -26,10 +34,10 @@ func (h *Handler) AddItemToCart(ctx context.Context, req *pb.AddItemToCartReques
 	return &pb.AddItemToCartResponse{UserId: cart.UserID, Items: cart.Items}, nil
 }
 
-func (h *Handler) GetCart(ctx context.Context, req *pb.GetCartRequest) (*pb.GetCartResponse, error) {
-	cart, err := h.service.GetCart(req.UserId)
+func (h *Handler) ClearCart(ctx context.Context, req *pb.ClearCartRequest) (*pb.ClearCartResponse, error) {
+	err := h.service.repo.ClearCart(ctx, req.UserId)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "could not get cart: %v", err)
+		return nil, status.Errorf(codes.Internal, "could not clear cart: %v", err)
 	}
-	return &pb.GetCartResponse{UserId: cart.UserID, Items: cart.Items}, nil
+	return &pb.ClearCartResponse{Success: true}, nil
 }

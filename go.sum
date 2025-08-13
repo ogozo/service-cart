@@ -6,6 +6,8 @@ github.com/cenkalti/backoff/v5 v5.0.2/go.mod h1:rkhZdG3JZukswDf7f0cwqPNk4K0sa+F9
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=
 github.com/cncf/udpa/go v0.0.0-20191209042840-269d4d468f6f/go.mod h1:M8M6+tZqaGXZJjfX53e64911xZQV5JYwmTeXPW+k8Sc=
+github.com/couchbase/gocb-opentelemetry v0.3.0 h1:Nx89/iRePKnW+b7M3qZkTym2XpCRVbcEhbfyzjIjnoQ=
+github.com/couchbase/gocb-opentelemetry v0.3.0/go.mod h1:uAjbXaa3x6DE5HyOaLQyRNqh6KjjjFDoNETOakz71JI=
 github.com/couchbase/gocb/v2 v2.10.1 h1:5r1jngGxw3dTZdtq6Xmjq3pdU6hOwRvynvbVIp58T64=
 github.com/couchbase/gocb/v2 v2.10.1/go.mod h1:GGEJuYjrfnPHCQLcxTcIco+Puy63PS2p8QQd8FRw66I=
 github.com/couchbase/gocbcore/v10 v10.7.1 h1:6jsNDtqyfoQ8Xg6kv99rzccc3CrHbp7FjeY+ahWXTF4=
