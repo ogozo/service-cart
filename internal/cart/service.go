@@ -4,8 +4,8 @@ import (
 	"context"
 	"log"
 
-	"github.com/ogozo/service-cart/internal/broker"
 	pb "github.com/ogozo/proto-definitions/gen/go/cart"
+	"github.com/ogozo/service-cart/internal/broker"
 )
 
 type Service struct {
@@ -46,8 +46,7 @@ func (s *Service) AddItem(ctx context.Context, userID string, item *pb.CartItem)
 	return cart, nil
 }
 
-func (s *Service) HandleOrderConfirmedEvent(event broker.OrderConfirmedEvent) {
-	ctx := context.Background()
+func (s *Service) HandleOrderConfirmedEvent(ctx context.Context, event broker.OrderConfirmedEvent) {
 	log.Printf("Clearing cart for user %s following order confirmation %s", event.UserID, event.OrderID)
 	err := s.repo.ClearCart(ctx, event.UserID)
 	if err != nil {
