@@ -8,17 +8,31 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/couchbase/gocb-opentelemetry"
+	"net/http"
+
+	gocbopentelemetry "github.com/couchbase/gocb-opentelemetry"
 	"github.com/couchbase/gocb/v2"
 	pb "github.com/ogozo/proto-definitions/gen/go/cart"
 	"github.com/ogozo/service-cart/internal/broker"
 	"github.com/ogozo/service-cart/internal/cart"
 	"github.com/ogozo/service-cart/internal/config"
 	"github.com/ogozo/service-cart/internal/observability"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.opentelemetry.io/otel"
 	"google.golang.org/grpc"
 )
+
+func startMetricsServer(port string) {
+	go func() {
+		mux := http.NewServeMux()
+		mux.Handle("/metrics", promhttp.Handler())
+		log.Printf("Metrics server listening on port %s", port)
+		if err := http.ListenAndServe(port, mux); err != nil {
+			log.Fatalf("failed to start metrics server: %v", err)
+		}
+	}()
+}
 
 func main() {
 
@@ -65,6 +79,8 @@ func main() {
 	}
 	collection := bucket.DefaultCollection()
 	log.Println("Couchbase connection successful for cart service.")
+
+	startMetricsServer(cfg.MetricsPort)
 
 	cartRepo := cart.NewRepository(collection)
 	cartService := cart.NewService(cartRepo)
