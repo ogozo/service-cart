@@ -2,10 +2,11 @@ package cart
 
 import (
 	"context"
-	"log"
 
 	pb "github.com/ogozo/proto-definitions/gen/go/cart"
 	"github.com/ogozo/service-cart/internal/broker"
+	"github.com/ogozo/service-cart/internal/logging"
+	"go.uber.org/zap"
 )
 
 type Service struct {
@@ -47,11 +48,19 @@ func (s *Service) AddItem(ctx context.Context, userID string, item *pb.CartItem)
 }
 
 func (s *Service) HandleOrderConfirmedEvent(ctx context.Context, event broker.OrderConfirmedEvent) {
-	log.Printf("Clearing cart for user %s following order confirmation %s", event.UserID, event.OrderID)
+	logging.Info(ctx, "clearing cart for user",
+		zap.String("user_id", event.UserID),
+		zap.String("order_id", event.OrderID),
+	)
+
 	err := s.repo.ClearCart(ctx, event.UserID)
 	if err != nil {
-		log.Printf("ERROR: Failed to clear cart for user %s: %v", event.UserID, err)
+		logging.Error(ctx, "failed to clear cart for user", err,
+			zap.String("user_id", event.UserID),
+		)
 	} else {
-		log.Printf("✅ Cart cleared for user %s.", event.UserID)
+		logging.Info(ctx, "cart cleared successfully",
+			zap.String("user_id", event.UserID),
+		)
 	}
 }

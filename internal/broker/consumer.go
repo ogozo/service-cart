@@ -4,13 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 
+	"github.com/ogozo/service-cart/internal/logging"
 	"github.com/streadway/amqp"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/codes"
 	semconv "go.opentelemetry.io/otel/semconv/v1.25.0"
 	"go.opentelemetry.io/otel/trace"
+	"go.uber.org/zap"
 )
 
 type TraceCarrier map[string]interface{}
@@ -106,10 +107,10 @@ func (c *Consumer) StartOrderConfirmedConsumer(handler func(ctx context.Context,
 				),
 			)
 
-			log.Printf("📩 Received OrderConfirmed event: %s", d.Body)
+			logging.Info(spanCtx, "received OrderConfirmed event", zap.String("body", string(d.Body)))
 			var event OrderConfirmedEvent
 			if err := json.Unmarshal(d.Body, &event); err != nil {
-				log.Printf("Error unmarshalling event: %v", err)
+				logging.Error(spanCtx, "failed to unmarshal event", err)
 				span.RecordError(err)
 				span.SetStatus(codes.Error, "failed to unmarshal message")
 				span.End()
@@ -120,6 +121,7 @@ func (c *Consumer) StartOrderConfirmedConsumer(handler func(ctx context.Context,
 			span.End()
 		}
 	}()
-	log.Println("👂 Listening for OrderConfirmed events...")
+
+	logging.Info(context.Background(), "listening for OrderConfirmed events")
 	return nil
 }

@@ -2,62 +2,68 @@ package main
 
 import (
 	"context"
-	"log"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"time"
 
-	"net/http"
-
 	gocbopentelemetry "github.com/couchbase/gocb-opentelemetry"
 	"github.com/couchbase/gocb/v2"
-	pb "github.com/ogozo/proto-definitions/gen/go/cart"
+	"github.com/ogozo/proto-definitions/gen/go/cart"
 	"github.com/ogozo/service-cart/internal/broker"
-	"github.com/ogozo/service-cart/internal/cart"
+	internalCart "github.com/ogozo/service-cart/internal/cart"
 	"github.com/ogozo/service-cart/internal/config"
+	"github.com/ogozo/service-cart/internal/logging"
 	"github.com/ogozo/service-cart/internal/observability"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.opentelemetry.io/otel"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
 
-func startMetricsServer(port string) {
+func startMetricsServer(l *zap.Logger, port string) {
 	go func() {
 		mux := http.NewServeMux()
 		mux.Handle("/metrics", promhttp.Handler())
-		log.Printf("Metrics server listening on port %s", port)
+		l.Info("metrics server started", zap.String("port", port))
 		if err := http.ListenAndServe(port, mux); err != nil {
-			log.Fatalf("failed to start metrics server: %v", err)
+			l.Fatal("failed to start metrics server", zap.Error(err))
 		}
 	}()
 }
 
 func main() {
-
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
-	config.LoadConfig()
-	cfg := config.AppConfig
+	var cfg config.CartConfig
+	config.LoadConfig(&cfg)
 
-	shutdown, err := observability.InitTracerProvider(ctx, cfg.OtelServiceName, cfg.OtelExporterEndpoint)
+	logging.Init(cfg.OtelServiceName)
+	defer logging.Sync()
+
+	logger := logging.FromContext(ctx)
+
+	shutdown, err := observability.InitTracerProvider(ctx, cfg.OtelServiceName, cfg.OtelExporterEndpoint, logger)
 	if err != nil {
-		log.Fatalf("failed to initialize tracer provider: %v", err)
+		logger.Fatal("failed to initialize tracer provider", zap.Error(err))
 	}
 	defer func() {
 		if err := shutdown(ctx); err != nil {
-			log.Fatalf("failed to shutdown tracer provider: %v", err)
+			logger.Fatal("failed to shutdown tracer provider", zap.Error(err))
 		}
 	}()
 
+	startMetricsServer(logger, cfg.MetricsPort)
+
 	consumer, err := broker.NewConsumer(cfg.RabbitMQURL)
 	if err != nil {
-		log.Fatalf("Failed to create consumer: %v", err)
+		logger.Fatal("failed to create consumer", zap.Error(err))
 	}
 	defer consumer.Close()
-	log.Println("RabbitMQ consumer connected.")
+	logger.Info("RabbitMQ consumer connected")
 
 	tp := otel.GetTracerProvider()
 
@@ -69,39 +75,37 @@ func main() {
 		Tracer: gocbopentelemetry.NewOpenTelemetryRequestTracer(tp),
 	})
 	if err != nil {
-		log.Fatalf("Could not connect to Couchbase: %v", err)
+		logger.Fatal("could not connect to Couchbase", zap.Error(err))
 	}
 
 	bucket := cluster.Bucket(cfg.CouchbaseBucket)
-	err = bucket.WaitUntilReady(5*time.Second, nil)
-	if err != nil {
-		log.Fatalf("Could not get bucket %s: %v", cfg.CouchbaseBucket, err)
+	if err = bucket.WaitUntilReady(5*time.Second, nil); err != nil {
+		logger.Fatal("could not get bucket", zap.Error(err), zap.String("bucket", cfg.CouchbaseBucket))
 	}
 	collection := bucket.DefaultCollection()
-	log.Println("Couchbase connection successful for cart service.")
+	logger.Info("Couchbase connection successful, with OTel instrumentation")
 
-	startMetricsServer(cfg.MetricsPort)
-
-	cartRepo := cart.NewRepository(collection)
-	cartService := cart.NewService(cartRepo)
-	cartHandler := cart.NewHandler(cartService)
+	cartRepo := internalCart.NewRepository(collection)
+	cartService := internalCart.NewService(cartRepo)
+	cartHandler := internalCart.NewHandler(cartService)
 
 	if err := consumer.StartOrderConfirmedConsumer(cartService.HandleOrderConfirmedEvent); err != nil {
-		log.Fatalf("Failed to start consumer: %v", err)
+		logger.Fatal("failed to start consumer", zap.Error(err))
 	}
 
 	lis, err := net.Listen("tcp", cfg.GRPCPort)
 	if err != nil {
-		log.Fatalf("failed to listen on port %s: %v", cfg.GRPCPort, err)
+		logger.Fatal("failed to listen", zap.Error(err), zap.String("port", cfg.GRPCPort))
 	}
+
 	s := grpc.NewServer(
 		grpc.StatsHandler(otelgrpc.NewServerHandler()),
 	)
 
-	pb.RegisterCartServiceServer(s, cartHandler)
+	cart.RegisterCartServiceServer(s, cartHandler)
 
-	log.Printf("Cart gRPC server listening at %v", lis.Addr())
+	logger.Info("gRPC server listening", zap.String("address", lis.Addr().String()))
 	if err := s.Serve(lis); err != nil {
-		log.Fatalf("failed to serve: %v", err)
+		logger.Fatal("failed to serve gRPC", zap.Error(err))
 	}
 }
