@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"net/http"
 	"os"
@@ -58,32 +59,56 @@ func main() {
 
 	startMetricsServer(logger, cfg.MetricsPort)
 
+	var collection *gocb.Collection
+	var connectErr error
+
+	maxRetries := 10
+	baseDelay := 2 * time.Second
+
+	for i := 0; i < maxRetries; i++ {
+		tp := otel.GetTracerProvider()
+		cluster, err := gocb.Connect(cfg.CouchbaseConnStr, gocb.ClusterOptions{
+			Authenticator: gocb.PasswordAuthenticator{
+				Username: cfg.CouchbaseUser,
+				Password: cfg.CouchbasePass,
+			},
+			Tracer: gocbopentelemetry.NewOpenTelemetryRequestTracer(tp),
+		})
+
+		if err != nil {
+			connectErr = fmt.Errorf("gocb.Connect failed: %w", err)
+		} else {
+			bucket := cluster.Bucket(cfg.CouchbaseBucket)
+			err = bucket.WaitUntilReady(5*time.Second, nil)
+			if err == nil {
+				collection = bucket.DefaultCollection()
+				connectErr = nil
+				break
+			}
+			connectErr = fmt.Errorf("bucket.WaitUntilReady failed: %w", err)
+			cluster.Close(nil)
+		}
+
+		delay := baseDelay * time.Duration(1<<i)
+		logger.Warn("could not connect to Couchbase and get bucket, retrying...",
+			zap.Error(connectErr),
+			zap.Int("attempt", i+1),
+			zap.Duration("delay", delay),
+		)
+		time.Sleep(delay)
+	}
+
+	if connectErr != nil {
+		logger.Fatal("could not connect to Couchbase after multiple retries", zap.Error(connectErr))
+	}
+	logger.Info("Couchbase connection successful and bucket is ready")
+
 	consumer, err := broker.NewConsumer(cfg.RabbitMQURL)
 	if err != nil {
 		logger.Fatal("failed to create consumer", zap.Error(err))
 	}
 	defer consumer.Close()
 	logger.Info("RabbitMQ consumer connected")
-
-	tp := otel.GetTracerProvider()
-
-	cluster, err := gocb.Connect(cfg.CouchbaseConnStr, gocb.ClusterOptions{
-		Authenticator: gocb.PasswordAuthenticator{
-			Username: cfg.CouchbaseUser,
-			Password: cfg.CouchbasePass,
-		},
-		Tracer: gocbopentelemetry.NewOpenTelemetryRequestTracer(tp),
-	})
-	if err != nil {
-		logger.Fatal("could not connect to Couchbase", zap.Error(err))
-	}
-
-	bucket := cluster.Bucket(cfg.CouchbaseBucket)
-	if err = bucket.WaitUntilReady(5*time.Second, nil); err != nil {
-		logger.Fatal("could not get bucket", zap.Error(err), zap.String("bucket", cfg.CouchbaseBucket))
-	}
-	collection := bucket.DefaultCollection()
-	logger.Info("Couchbase connection successful, with OTel instrumentation")
 
 	cartRepo := internalCart.NewRepository(collection)
 	cartService := internalCart.NewService(cartRepo)
